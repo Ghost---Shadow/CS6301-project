@@ -1,12 +1,10 @@
-# ROS project
-
-## Manual
+# README
 
 ```sh
 ipconfig # IPv4 Address. . . . . . . . . . . : 172.26.240.1
 
 # Start docker container
-docker run --rm -it -e DISPLAY=172.26.240.1:0.0 --mount type=bind,source="C:/Users/soura/Desktop/UTD courses/FALL24/CS6301/CS6301-project/workspace",target=/home/ros/workspace --name ros-container osrf/ros:noetic-desktop-full
+docker run --rm -it -e DISPLAY=172.26.240.1:0.0 --mount type=bind,source="C:/Users/soura/Desktop/UTD courses/FALL24/CS6301/CS6301-3/workspace",target=/home/ros/workspace --name ros-container osrf/ros:noetic-desktop-full
 
 # Setup workspace
 apt update
@@ -27,7 +25,19 @@ apt install -y ros-noetic-robot-controllers ros-noetic-rgbd-launch ros-noetic-fe
 # Remake
 catkin_make
 source devel/setup.bash
-roslaunch fetch_gazebo simple_grasp.launch
+# roslaunch fetch_gazebo simple_grasp.launch
+
+# Moveit
+apt install ros-noetic-moveit ros-noetic-grid-map-costmap-2d -y
+git clone --branch ros1 https://github.com/fetchrobotics/fetch_ros.git /home/ros/workspace/src/fetch_ros
+rosdep install --from-paths src --ignore-src -r -y
+catkin_make
+source devel/setup.bash
+# roslaunch fetch_moveit_config demo.launch
+roslaunch fetch_moveit_config move_group.launch
+
+# Track IK
+apt-get install ros-noetic-trac-ik -y
 
 # Rviz in another terminal
 docker exec -it ros-container bash
@@ -42,15 +52,5 @@ source devel/setup.bash
 sudo apt update && sudo apt install python3 python3-pip -y
 pip3 install numpy transforms3d
 sudo ln -s /usr/bin/python3 /usr/bin/python
-```
-
-## Dockerfile
-
-```sh
-docker build -t ros-project .
-
-docker run -it --rm \
-    -e DISPLAY=host.docker.internal:0.0 \
-    -v C:/path/to/your/project/src:/catkin_ws/src \
-    ros-project
+rosrun fetch_gazebo planning_scene_block.py
 ```

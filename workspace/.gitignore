@@ -1,0 +1,27 @@
+# Ignore build and devel directories created by catkin_make or catkin build
+build/
+devel/
+logs/
+
+# Ignore all logfiles
+*.log
+
+# Python related ignores
+*.pyc
+__pycache__/
+
+# Editor backups and settings
+*~
+*.swp
+.vscode/
+.idea/
+
+# Ignore temporary files
+*.tmp
+
+# Ignore media
+*.png
+*.dae
+*.stl
+
+*CMakeLists.txt
