@@ -4,23 +4,26 @@
 ipconfig # IPv4 Address. . . . . . . . . . . : 172.26.240.1
 
 # Start docker container
-docker run --rm -it -e DISPLAY=172.26.240.1:0.0 --mount type=bind,source="C:/Users/soura/Desktop/UTD courses/FALL24/CS6301/CS6301-3/workspace",target=/home/ros/workspace --name ros-container osrf/ros:noetic-desktop-full
+docker run --rm -it -e DISPLAY=172.26.240.1:0.0 --mount type=bind,source="C:/Users/soura/Desktop/UTD courses/FALL24/CS6301/CS6301-project/workspace",target=/home/ros/workspace --name ros-container osrf/ros:noetic-desktop-full
 
 # Setup workspace
-apt update
+apt update && apt install -y ros-noetic-robot-controllers ros-noetic-rgbd-launch ros-noetic-fetch-description git ros-noetic-moveit ros-noetic-grid-map-costmap-2d ros-noetic-trac-ik python3 python3-pip
 cd /home/ros/workspace
 source /opt/ros/noetic/setup.bash
 mkdir src
+rosdep install --from-paths src --ignore-src -r -y
 catkin_make
 source devel/setup.bash
 echo $ROS_PACKAGE_PATH # /home/ros/workspace/src:/opt/ros/noetic/share
 
+roslaunch aws_robomaker_small_house_world small_house.launch
+
 # Clone dependencies
-sudo apt install git -y
+# sudo apt install git -y
 git clone -b gazebo11 git@github.com:ZebraDevs/fetch_gazebo.git
 mv fetch_gazebo/fetch_gazebo ./src
 rm -rf fetch_gazebo
-apt install -y ros-noetic-robot-controllers ros-noetic-rgbd-launch ros-noetic-fetch-description
+# apt install -y ros-noetic-robot-controllers ros-noetic-rgbd-launch ros-noetic-fetch-description
 
 # Remake
 catkin_make
@@ -28,7 +31,7 @@ source devel/setup.bash
 # roslaunch fetch_gazebo simple_grasp.launch
 
 # Moveit
-apt install ros-noetic-moveit ros-noetic-grid-map-costmap-2d -y
+# apt install ros-noetic-moveit ros-noetic-grid-map-costmap-2d -y
 git clone --branch ros1 https://github.com/fetchrobotics/fetch_ros.git /home/ros/workspace/src/fetch_ros
 rosdep install --from-paths src --ignore-src -r -y
 catkin_make
@@ -37,7 +40,7 @@ source devel/setup.bash
 roslaunch fetch_moveit_config move_group.launch
 
 # Track IK
-apt-get install ros-noetic-trac-ik -y
+# apt-get install ros-noetic-trac-ik -y
 
 # Rviz in another terminal
 docker exec -it ros-container bash
