@@ -16,7 +16,13 @@ catkin_make
 source devel/setup.bash
 echo $ROS_PACKAGE_PATH # /home/ros/workspace/src:/opt/ros/noetic/share
 
-roslaunch aws_robomaker_small_house_world small_house.launch
+# roslaunch aws_robomaker_small_house_world small_house.launch
+# roslaunch src/SceneReplica/launch/moveit_sim.launch
+roslaunch fetch_moveit_config move_group.launch
+rosrun fetch_gazebo pickup.py
+rosrun fetch_gazebo prepare_simulated_robot.py
+rosrun fetch_gazebo prepare_simulated_robot_pick_place.py
+rosrun fetch_gazebo pickup.py
 
 # Clone dependencies
 # sudo apt install git -y
