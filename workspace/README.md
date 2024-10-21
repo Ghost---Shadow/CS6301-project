@@ -59,7 +59,7 @@ docker exec -it ros-container bash
 cd /home/ros/workspace
 source devel/setup.bash
 sudo apt update && sudo apt install python3 python3-pip -y
-pip3 install numpy transforms3d
+pip3 install numpy transforms3d openai
 sudo ln -s /usr/bin/python3 /usr/bin/python
 rosrun fetch_gazebo planning_scene_block.py
 ```

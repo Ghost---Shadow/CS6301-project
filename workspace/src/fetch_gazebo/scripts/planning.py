@@ -1,40 +1,39 @@
 #! /usr/bin/env python
 
 import sys
+from typing import List
 import rospy
 import moveit_commander
 import moveit_msgs.msg
 import actionlib
+from pydantic import BaseModel, validator, ValidationError
+from openai import OpenAI
 
 PLANNING_GROUP = "PLANNING_GROUP"
 
 # Actions are animations with multiple poses
 # OpenAI will decide the actions
-ACTION_PICK_UP_CARROT = "ACTION_PICK_UP_CARROT"
-ACTION_PICK_UP_FISH = "ACTION_PICK_UP_FISH"
-ACTION_PICK_UP_KNIFE = "ACTION_PICK_UP_KNIFE"
-ACTION_CHOP_CARROT = "ACTION_CHOP_CARROT"
-ACTION_CHOP_FISH = "ACTION_PICK_UP_FISH"
-ACTION_PUT_DOWN_CARROT = "ACTION_PUT_DOWN_CARROT"
-ACTION_PUT_DOWN_FISH = "ACTION_PUT_DOWN_FISH"
-ACTION_PUT_DOWN_KNIFE = "ACTION_PUT_DOWN_KNIFE"
+ACTION_CARROT_TO_CHOPPING_BOARD = "ACTION_CARROT_TO_CHOPPING_BOARD"
+ACTION_FISH_TO_CHOPPING_BOARD = "ACTION_FISH_TO_CHOPPING_BOARD"
+ACTION_CHOP_AND_PUT_DOWN_KNIFE = "ACTION_CHOP_AND_PUT_DOWN_KNIFE"
+ACTION_DELIVER_CHOPPED_ITEM = "ACTION_DELIVER_CHOPPED_ITEM"
 
 # Every action is multiple poses chained
 POSE_ZERO = "POSE_ZERO"
 POSE_READY_TO_GRAB_CARROT = "POSE_READY_TO_GRAB_CARROT"
 POSE_READY_TO_GRAB_FISH = "POSE_READY_TO_GRAB_FISH"
-POSE_READY_TO_GRAB_KNIFE = "POSE_READY_TO_GRAB_KNIFE"
+POSE_KNIFE_LOCATION = "POSE_KNIFE_LOCATION"
 POSE_ABOVE_CHOPPING_BOARD = "POSE_ABOVE_CHOPPING_BOARD"
+POSE_READY_TO_GRAB_CHOPPED_ITEM = "POSE_READY_TO_GRAB_CHOPPED_ITEM"
 POSE_HAND_OPEN = "POSE_HAND_OPEN"
 POSE_HAND_CLOSED = "POSE_HAND_CLOSED"
 POSE_CHOP_UP = "POSE_CHOP_UP"
 POSE_CHOP_DOWN = "POSE_CHOP_DOWN"
-POSE_DEPOSIT_KNIFE = "POSE_DEPOSIT_KNIFE"
-POSE_DEPOSIT_FISH = "POSE_DEPOSIT_FISH"
-POSE_DEPOSIT_CARROT = "POSE_DEPOSIT_CARROT"
+POSE_DINNER_PLATE_LOCATION = "POSE_DINNER_PLATE_LOCATION"
+
 
 ANIMATIONS_LUT = {
-    ACTION_PICK_UP_CARROT: [
+    ACTION_CARROT_TO_CHOPPING_BOARD: [
         {"type": POSE_ZERO, "delay": 1.0},
         {"type": POSE_HAND_OPEN, "delay": 1.0},
         {"type": POSE_READY_TO_GRAB_CARROT, "delay": 1.0},
@@ -42,7 +41,7 @@ ANIMATIONS_LUT = {
         {"type": POSE_ABOVE_CHOPPING_BOARD, "delay": 1.0},
         {"type": POSE_HAND_OPEN, "delay": 1.0},
     ],
-    ACTION_PICK_UP_FISH: [
+    ACTION_FISH_TO_CHOPPING_BOARD: [
         {"type": POSE_ZERO, "delay": 1.0},
         {"type": POSE_HAND_OPEN, "delay": 1.0},
         {"type": POSE_READY_TO_GRAB_FISH, "delay": 1.0},
@@ -50,43 +49,24 @@ ANIMATIONS_LUT = {
         {"type": POSE_ABOVE_CHOPPING_BOARD, "delay": 1.0},
         {"type": POSE_HAND_OPEN, "delay": 1.0},
     ],
-    ACTION_PICK_UP_KNIFE: [
-        {"type": POSE_READY_TO_GRAB_KNIFE, "delay": 1.0},
+    ACTION_CHOP_AND_PUT_DOWN_KNIFE: [
+        {"type": POSE_KNIFE_LOCATION, "delay": 1.0},
         {"type": POSE_HAND_CLOSED, "delay": 1.0},
-    ],
-    ACTION_CHOP_CARROT: [
         {"type": POSE_ABOVE_CHOPPING_BOARD, "delay": 1.0},
         {"type": POSE_CHOP_UP, "delay": 1.0},
         {"type": POSE_CHOP_DOWN, "delay": 1.0},
         {"type": POSE_CHOP_UP, "delay": 1.0},
         {"type": POSE_CHOP_DOWN, "delay": 1.0},
-        {"type": POSE_DEPOSIT_KNIFE, "delay": 1.0},
+        {"type": POSE_KNIFE_LOCATION, "delay": 1.0},
         {"type": POSE_HAND_OPEN, "delay": 1.0},
     ],
-    ACTION_CHOP_FISH: [
-        {"type": POSE_ABOVE_CHOPPING_BOARD, "delay": 1.0},
-        {"type": POSE_CHOP_UP, "delay": 1.0},
-        {"type": POSE_CHOP_DOWN, "delay": 1.0},
-        {"type": POSE_CHOP_UP, "delay": 1.0},
-        {"type": POSE_CHOP_DOWN, "delay": 1.0},
-        {"type": POSE_DEPOSIT_KNIFE, "delay": 1.0},
+    ACTION_DELIVER_CHOPPED_ITEM: [
         {"type": POSE_HAND_OPEN, "delay": 1.0},
-    ],
-    ACTION_PUT_DOWN_CARROT: [
         {"type": POSE_ABOVE_CHOPPING_BOARD, "delay": 1.0},
-        {"type": POSE_DEPOSIT_CARROT, "delay": 1.0},
-        {"type": POSE_HAND_OPEN, "delay": 1.0},
-        {"type": POSE_ZERO, "delay": 1.0},
-    ],
-    ACTION_PUT_DOWN_FISH: [
+        {"type": POSE_READY_TO_GRAB_CHOPPED_ITEM, "delay": 1.0},
+        {"type": POSE_HAND_CLOSED, "delay": 1.0},
         {"type": POSE_ABOVE_CHOPPING_BOARD, "delay": 1.0},
-        {"type": POSE_DEPOSIT_FISH, "delay": 1.0},
-        {"type": POSE_HAND_OPEN, "delay": 1.0},
-        {"type": POSE_ZERO, "delay": 1.0},
-    ],
-    ACTION_PUT_DOWN_KNIFE: [
-        {"type": POSE_ABOVE_CHOPPING_BOARD, "delay": 1.0},
-        {"type": POSE_DEPOSIT_KNIFE, "delay": 1.0},
+        {"type": POSE_DINNER_PLATE_LOCATION, "delay": 1.0},
         {"type": POSE_HAND_OPEN, "delay": 1.0},
         {"type": POSE_ZERO, "delay": 1.0},
     ],
@@ -148,7 +128,59 @@ class PoseOperator:
             rospy.loginfo(f"Action {action_name} is not defined.")
 
 
-def main():
+# Define the allowed actions as a class attribute or global constant
+ALLOWED_ACTIONS = [
+    ACTION_CARROT_TO_CHOPPING_BOARD,
+    ACTION_FISH_TO_CHOPPING_BOARD,
+    ACTION_CHOP_AND_PUT_DOWN_KNIFE,
+    ACTION_DELIVER_CHOPPED_ITEM,
+]
+
+
+class ActionPlan(BaseModel):
+    actions: List[str]
+
+    # Validator to ensure each action is in the allowed list
+    @validator("actions", each_item=True)
+    def check_allowed_actions(cls, v):
+        if v not in ALLOWED_ACTIONS:
+            raise ValueError(f"{v} is not an allowed action")
+        return v
+
+
+class Planner:
+    def __init__(self):
+        self.client = OpenAI()
+
+    def plan_meal(self, meal_description):
+        messages = [
+            {
+                "role": "system",
+                "content": f"Generate a sequence of actions for meal preparation. Only choose from the following {','.join(ALLOWED_ACTIONS)}",
+            },
+            {"role": "user", "content": meal_description},
+        ]
+
+        # Call the OpenAI API
+        try:
+            completion = self.client.beta.chat.completions.parse(
+                model="gpt-4o-2024-08-06",
+                messages=messages,
+                response_format=ActionPlan,
+            )
+
+            # Parse the structured output to return the list of actions
+            actions = completion.choices[0].message.parsed.actions
+            # Filter actions to ensure they are valid based on ALL_ACTIONS
+            valid_actions = [action for action in actions if action in ALLOWED_ACTIONS]
+            return valid_actions
+
+        except Exception as e:
+            print(f"Failed to retrieve actions: {e}")
+            return []
+
+
+def debug_loop():
     pose_operator = PoseOperator(PLANNING_GROUP)
 
     print("Pose Operator is running. Enter action names to execute or 'exit' to quit:")
@@ -167,5 +199,66 @@ def main():
         print("Interrupt received, stopping the pose operator.")
 
 
+def planning_loop():
+    pose_operator = PoseOperator(PLANNING_GROUP)
+    planner = Planner()  # Assuming Planner class is already defined and imported
+
+    print(
+        "Pose Operator is running. Enter meal descriptions to plan or 'exit' to quit:"
+    )
+    try:
+        while not rospy.is_shutdown():
+            meal_description = input("Enter a meal description: ")
+            if meal_description.lower() == "exit":
+                print("Exiting...")
+                break
+
+            actions = planner.plan_meal(meal_description)
+            if actions:
+                print(f"Executing actions for: {meal_description}")
+                for action in actions:
+                    print(f"Executing {action}")
+                    pose_operator.execute_action(action)
+            else:
+                print(
+                    "No valid actions found for the given description. Please try again."
+                )
+            rospy.sleep(2)
+    except KeyboardInterrupt:
+        print("Interrupt received, stopping the pose operator.")
+
+
+def test_vegan_meal_valid_response(planner):
+    meal_description = "I want to make a vegan salad"
+
+    actions = planner.plan_meal(meal_description)
+
+    assert actions == [
+        "ACTION_CARROT_TO_CHOPPING_BOARD",
+        "ACTION_CHOP_AND_PUT_DOWN_KNIFE",
+        "ACTION_DELIVER_CHOPPED_ITEM",
+    ], actions
+
+
+def test_sushi_meal_valid_response(planner):
+    meal_description = "I want sushi"
+
+    actions = planner.plan_meal(meal_description)
+
+    assert actions == [
+        "ACTION_FISH_TO_CHOPPING_BOARD",
+        "ACTION_CHOP_AND_PUT_DOWN_KNIFE",
+        "ACTION_DELIVER_CHOPPED_ITEM",
+    ], actions
+
+
+def tests():
+    planner = Planner()
+    test_vegan_meal_valid_response(planner)
+    test_sushi_meal_valid_response(planner)
+
+
 if __name__ == "__main__":
-    main()
+    # debug_loop()
+    # planning_loop()
+    tests()
