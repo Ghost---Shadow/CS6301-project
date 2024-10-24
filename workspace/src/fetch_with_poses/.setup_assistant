@@ -8,4 +8,4 @@ moveit_setup_assistant_config:
   CONFIG:
     author_name: whatever
     author_email: idontcare@whatever.com
-    generated_timestamp: 1729778167
+    generated_timestamp: 1729779581
