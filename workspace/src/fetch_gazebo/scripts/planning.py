@@ -9,7 +9,8 @@ import actionlib
 from pydantic import BaseModel, validator, ValidationError
 from openai import OpenAI
 
-PLANNING_GROUP = "PLANNING_GROUP"
+PLANNING_GROUP_ARM = "arm"
+PLANNING_GROUP_GRIPPER = "gripper"
 
 # Actions are animations with multiple poses
 # OpenAI will decide the actions
@@ -34,12 +35,12 @@ POSE_DINNER_PLATE_LOCATION = "POSE_DINNER_PLATE_LOCATION"
 
 ANIMATIONS_LUT = {
     ACTION_CARROT_TO_CHOPPING_BOARD: [
-        {"type": POSE_ZERO, "delay": 1.0},
-        {"type": POSE_HAND_OPEN, "delay": 1.0},
-        {"type": POSE_READY_TO_GRAB_CARROT, "delay": 1.0},
-        {"type": POSE_HAND_CLOSED, "delay": 1.0},
-        {"type": POSE_ABOVE_CHOPPING_BOARD, "delay": 1.0},
-        {"type": POSE_HAND_OPEN, "delay": 1.0},
+        {"type": POSE_ZERO, "delay": 1.0, "group": PLANNING_GROUP_ARM},
+        {"type": POSE_HAND_OPEN, "delay": 1.0, "group": PLANNING_GROUP_GRIPPER},
+        {"type": POSE_READY_TO_GRAB_CARROT, "delay": 1.0, "group": PLANNING_GROUP_ARM},
+        {"type": POSE_HAND_CLOSED, "delay": 1.0, "group": PLANNING_GROUP_GRIPPER},
+        {"type": POSE_ABOVE_CHOPPING_BOARD, "delay": 1.0, "group": PLANNING_GROUP_ARM},
+        {"type": POSE_HAND_OPEN, "delay": 1.0, "group": PLANNING_GROUP_GRIPPER},
     ],
     ACTION_FISH_TO_CHOPPING_BOARD: [
         {"type": POSE_ZERO, "delay": 1.0},
@@ -74,7 +75,7 @@ ANIMATIONS_LUT = {
 
 
 class PoseOperator:
-    def __init__(self, planning_group):
+    def __init__(self):
         # Initialize ROS node and moveit_commander
         moveit_commander.roscpp_initialize(sys.argv)
         rospy.init_node("node_set_redefined_pose", anonymous=True)
@@ -82,7 +83,12 @@ class PoseOperator:
         # Core components of the robot interface
         self.robot = moveit_commander.RobotCommander()
         self.scene = moveit_commander.PlanningSceneInterface()
-        self.group = moveit_commander.MoveGroupCommander(planning_group)
+        self.group_lut = {
+            PLANNING_GROUP_ARM: moveit_commander.MoveGroupCommander(PLANNING_GROUP_ARM),
+            PLANNING_GROUP_GRIPPER: moveit_commander.MoveGroupCommander(
+                PLANNING_GROUP_GRIPPER
+            ),
+        }
 
         # Trajectory visualization and execution
         self.display_trajectory_publisher = rospy.Publisher(
@@ -97,16 +103,29 @@ class PoseOperator:
         )
         self.execute_trajectory_client.wait_for_server()
 
-        # Optional: Log key information
-        rospy.loginfo(f"Robot initialized with planning group: {planning_group}")
+    def set_pose(self, group_name, pose_name):
+        group = self.group_lut[group_name]
 
-    def set_pose(self, pose_name):
-        self.group.set_named_target(pose_name)
-        plan = self.group.plan()
-        goal = moveit_msgs.msg.ExecuteTrajectoryGoal()
-        goal.trajectory = plan
-        self.execute_trajectory_client.send_goal(goal)
-        self.execute_trajectory_client.wait_for_result()
+        # Set the target pose by name
+        group.set_named_target(pose_name)
+
+        # Plan to the given pose
+        plan = group.plan()[1]
+
+        # Execute the plan
+        success = group.execute(plan, wait=True)
+        group.stop()  # Ensure that there is no residual movement
+
+        # Clear targets after execution
+        group.clear_pose_targets()
+
+        # Check if the plan was successfully executed
+        if not success:
+            rospy.logerr("Failed to execute plan to {}".format(pose_name))
+        else:
+            rospy.loginfo("Successfully executed plan to {}".format(pose_name))
+
+        return success
 
     def execute_action(self, action_name):
         """
@@ -119,10 +138,11 @@ class PoseOperator:
             for step in ANIMATIONS_LUT[action_name]:
                 pose_name = step["type"]
                 delay = step["delay"]
+                group_name = step["group"]
                 rospy.loginfo(
-                    f"Executing pose: {pose_name} with a delay of {delay} seconds"
+                    f"Executing pose: {group_name}:{pose_name} with a delay of {delay} seconds"
                 )
-                self.set_pose(pose_name)
+                self.set_pose(group_name, pose_name)
                 rospy.sleep(2)
         else:
             rospy.loginfo(f"Action {action_name} is not defined.")
@@ -181,7 +201,7 @@ class Planner:
 
 
 def debug_loop():
-    pose_operator = PoseOperator(PLANNING_GROUP)
+    pose_operator = PoseOperator()
 
     print("Pose Operator is running. Enter action names to execute or 'exit' to quit:")
     try:
@@ -200,7 +220,7 @@ def debug_loop():
 
 
 def planning_loop():
-    pose_operator = PoseOperator(PLANNING_GROUP)
+    pose_operator = PoseOperator()
     planner = Planner()  # Assuming Planner class is already defined and imported
 
     print(
@@ -259,6 +279,6 @@ def tests():
 
 
 if __name__ == "__main__":
-    # debug_loop()
+    debug_loop()
     # planning_loop()
-    tests()
+    # tests()

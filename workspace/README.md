@@ -20,13 +20,14 @@ roslaunch moveit_setup_assistant setup_assistant.launch
 
 # roslaunch aws_robomaker_small_house_world small_house.launch
 # roslaunch src/SceneReplica/launch/moveit_sim.launch
-# roslaunch fetch_moveit_config move_group.launch
-roslaunch fetch_with_poses demo_gazebo.launch
-roslaunch fetch_with_poses move_group.launch
-rosrun fetch_gazebo pickup.py
-rosrun fetch_gazebo prepare_simulated_robot.py
-rosrun fetch_gazebo prepare_simulated_robot_pick_place.py
-rosrun fetch_gazebo pickup.py
+roslaunch fetch_moveit_config move_group.launch
+# roslaunch fetch_gazebo simple_grasp.launch
+# roslaunch fetch_with_poses demo_gazebo.launch
+# roslaunch fetch_with_poses move_group.launch
+rosrun fetch_gazebo planning.py
+# rosrun fetch_gazebo prepare_simulated_robot.py
+# rosrun fetch_gazebo prepare_simulated_robot_pick_place.py
+# rosrun fetch_gazebo pickup.py
 
 # Clone dependencies
 # sudo apt install git -y
@@ -63,7 +64,7 @@ docker exec -it ros-container bash
 cd /home/ros/workspace
 source devel/setup.bash
 sudo apt update && sudo apt install python3 python3-pip -y
-pip3 install numpy transforms3d openai
+pip3 install numpy transforms3d openai pydantic
 sudo ln -s /usr/bin/python3 /usr/bin/python
 rosrun fetch_gazebo planning_scene_block.py
 ```

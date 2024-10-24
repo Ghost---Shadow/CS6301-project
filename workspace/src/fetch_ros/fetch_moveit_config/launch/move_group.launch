@@ -1,6 +1,7 @@
 <launch>
   <include file="$(find fetch_gazebo)/launch/simple_grasp.launch" />
-  <param name="robot_description_semantic" textfile="$(find fetch_moveit_config)/config/fetch.srdf"/>
+  <!-- <param name="robot_description_semantic" textfile="$(find fetch_moveit_config)/config/fetch.srdf"/> -->
+  <param name="robot_description_semantic" textfile="$(find fetch_with_poses)/config/fetch.srdf"/>
 
   <!-- GDB Debug Option -->
   <arg name="debug" default="false" />
