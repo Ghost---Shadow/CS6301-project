@@ -16,6 +16,8 @@ catkin_make
 source devel/setup.bash
 echo $ROS_PACKAGE_PATH # /home/ros/workspace/src:/opt/ros/noetic/share
 
+roslaunch moveit_setup_assistant setup_assistant.launch
+
 # roslaunch aws_robomaker_small_house_world small_house.launch
 # roslaunch src/SceneReplica/launch/moveit_sim.launch
 roslaunch fetch_moveit_config move_group.launch
