@@ -1,0 +1,28 @@
+<?xml version='1.0'?>
+<sdf version='1.6'>
+  <model name='pot'>
+    <static>true</static>
+    <link name='link'>
+      <collision name='collision'>
+        <geometry>
+          <mesh>
+            <uri>model://pot/meshes/model.stl</uri>
+          </mesh>
+        </geometry>
+      </collision>
+      <visual name='visual'>
+        <geometry>
+          <mesh>
+            <uri>model://pot/meshes/model.stl</uri>
+          </mesh>
+        </geometry>
+        <material>
+          <ambient>1 1 1 1</ambient>
+          <diffuse>1 1 1 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
+          <emissive>0 0 0 1</emissive>
+        </material>
+      </visual>
+    </link>
+  </model>
+</sdf>
