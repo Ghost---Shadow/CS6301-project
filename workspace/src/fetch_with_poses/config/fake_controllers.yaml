@@ -1,5 +1,5 @@
 controller_list:
-  - name: fake_arm_group_controller
+  - name: fake_arm_controller
     type: $(arg fake_execution_type)
     joints:
       - shoulder_pan_joint
@@ -9,13 +9,24 @@ controller_list:
       - forearm_roll_joint
       - wrist_flex_joint
       - wrist_roll_joint
-  - name: fake_hand_controller
+  - name: fake_arm_with_torso_controller
+    type: $(arg fake_execution_type)
+    joints:
+      - torso_lift_joint
+      - shoulder_pan_joint
+      - shoulder_lift_joint
+      - upperarm_roll_joint
+      - elbow_flex_joint
+      - forearm_roll_joint
+      - wrist_flex_joint
+      - wrist_roll_joint
+  - name: fake_gripper_controller
     type: $(arg fake_execution_type)
     joints:
       - l_gripper_finger_joint
       - r_gripper_finger_joint
 initial:  # Define initial robot poses per group
-  - group: arm_group
+  - group: arm
     pose: POSE_ZERO
-  - group: hand
+  - group: gripper
     pose: POSE_HAND_CLOSED
