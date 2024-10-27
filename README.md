@@ -1,56 +1,57 @@
-# ROS project
+# Soup Operator
 
-## Manual
+## Environment setup (Powershell)
 
-```sh
+```powershell
 ipconfig # IPv4 Address. . . . . . . . . . . : 172.26.240.1
 
-# Start docker container
-docker run --rm -it -e DISPLAY=172.26.240.1:0.0 --mount type=bind,source="C:/Users/soura/Desktop/UTD courses/FALL24/CS6301/CS6301-project/workspace",target=/home/ros/workspace --name ros-container osrf/ros:noetic-desktop-full
+# Define variables
+$HOST_IP = "172.26.240.1"  # Get from ipconfig
+$LOCAL_WORKSPACE = "${PWD}\workspace"
+$CONTAINER_WORKSPACE = "/home/ros/workspace"
+$CONTAINER_NAME = "ros-container"
+$IMAGE_NAME = "osrf/ros:noetic-desktop-full"
 
-# Setup workspace
-apt update
+# Start Docker container
+docker run --rm -it -e DISPLAY=$HOST_IP`:0 --mount type=bind,source=`"$LOCAL_WORKSPACE`",target=$CONTAINER_WORKSPACE --name $CONTAINER_NAME $IMAGE_NAME
+
+# Prepare the workspace
 cd /home/ros/workspace
-source /opt/ros/noetic/setup.bash
-mkdir src
-catkin_make
-source devel/setup.bash
-echo $ROS_PACKAGE_PATH # /home/ros/workspace/src:/opt/ros/noetic/share
-
-# Clone dependencies
-sudo apt install git -y
-git clone -b gazebo11 git@github.com:ZebraDevs/fetch_gazebo.git
-mv fetch_gazebo/fetch_gazebo ./src
-rm -rf fetch_gazebo
-apt install -y ros-noetic-robot-controllers ros-noetic-rgbd-launch ros-noetic-fetch-description
-
-# Remake
-catkin_make
-source devel/setup.bash
-roslaunch fetch_gazebo simple_grasp.launch
-
-# Rviz in another terminal
-docker exec -it ros-container bash
-cd /home/ros/workspace
-source devel/setup.bash
-rosrun rviz rviz
-
-# Python in 3rd terminal
-docker exec -it ros-container bash
-cd /home/ros/workspace
-source devel/setup.bash
-sudo apt update && sudo apt install python3 python3-pip -y
-pip3 install numpy transforms3d
-sudo ln -s /usr/bin/python3 /usr/bin/python
+source setup.sh
 ```
 
-## Dockerfile
+## Running simulation
+
+### Terminal 1
 
 ```sh
-docker build -t ros-project .
+# Already running terminal
+roslaunch fetch_moveit_config move_group.launch
+```
 
-docker run -it --rm \
-    -e DISPLAY=host.docker.internal:0.0 \
-    -v C:/path/to/your/project/src:/catkin_ws/src \
-    ros-project
+### Terminal 2
+
+```sh
+docker exec -it ros-container bash
+cd /home/ros/workspace
+source devel/setup.bash
+
+# OpenAI token
+# Get one from here https://platform.openai.com/api-keys
+# Make sure you have money in your account
+export OPENAI_API_KEY="<secret>"
+
+# https://github.com/ros-planning/navigation/issues/1125#issuecomment-1238647110
+rosrun fetch_gazebo planning.py 2> >(grep -v TF_REPEATED_DATA buffer_core)
+
+# Example queries
+# I want a vegan soup
+# I want a fish soup
+```
+
+## Adding more poses
+
+```sh
+# https://www.youtube.com/watch?v=DZB5_4JCS0A&list=PLeEzO_sX5H6TBD6EMGgV-qdhzxPY19m12&index=13
+roslaunch moveit_setup_assistant setup_assistant.launch
 ```
