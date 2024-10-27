@@ -37,11 +37,11 @@ PLANNING_GROUP_GRIPPER = "gripper"
 ACTION_PREFLIGHT = "ACTION_PREFLIGHT"
 ACTION_CARROT_TO_POT = "ACTION_CARROT_TO_POT"
 ACTION_FISH_TO_POT = "ACTION_FISH_TO_POT"
-ACTION_SALT_TO_POT = "ACTION_SALT_TO_POT"
+ACTION_TOMATO_TO_POT = "ACTION_TOMATO_TO_POT"
 ALLOWED_ACTIONS = [
     ACTION_CARROT_TO_POT,
     ACTION_FISH_TO_POT,
-    ACTION_SALT_TO_POT,
+    ACTION_TOMATO_TO_POT,
 ]
 
 # Every action is multiple poses chained
@@ -56,7 +56,7 @@ IK_TYPES = [IK_OPERATION_HOVER, IK_OPERATION_READY_TO_GRAB]
 
 OBJECT_CARROT = "carrot"
 OBJECT_FISH = "fish"
-OBJECT_SALT = "salt"
+OBJECT_TOMATO = "tomato"
 OBJECT_POT = "pot"
 OBJECT_ROBOT = "fetch"
 
@@ -83,9 +83,9 @@ ANIMATIONS_LUT = {
         {"type": IK_OPERATION_HOVER, "target": OBJECT_POT},
         {"group": PLANNING_GROUP_GRIPPER, "type": POSE_HAND_OPEN},
     ],
-    ACTION_SALT_TO_POT: [
-        {"type": IK_OPERATION_HOVER, "target": OBJECT_SALT},
-        {"type": IK_OPERATION_READY_TO_GRAB, "target": OBJECT_SALT},
+    ACTION_TOMATO_TO_POT: [
+        {"type": IK_OPERATION_HOVER, "target": OBJECT_TOMATO},
+        {"type": IK_OPERATION_READY_TO_GRAB, "target": OBJECT_TOMATO},
         {"group": PLANNING_GROUP_GRIPPER, "type": POSE_HAND_CLOSED},
         {"group": PLANNING_GROUP_ARM, "type": POSE_ABOVE_CHOPPING_BOARD},
         {"type": IK_OPERATION_HOVER, "target": OBJECT_POT},
@@ -424,7 +424,7 @@ def test_vegan_meal_valid_response(planner):
     assert set(actions) == set(
         [
             "ACTION_CARROT_TO_POT",
-            "ACTION_SALT_TO_POT",
+            "ACTION_TOMATO_TO_POT",
         ]
     ), actions
 
@@ -437,7 +437,7 @@ def test_sushi_meal_valid_response(planner):
     assert set(actions) == set(
         [
             "ACTION_CARROT_TO_POT",
-            "ACTION_SALT_TO_POT",
+            "ACTION_TOMATO_TO_POT",
             "ACTION_FISH_TO_POT",
         ]
     ), actions
