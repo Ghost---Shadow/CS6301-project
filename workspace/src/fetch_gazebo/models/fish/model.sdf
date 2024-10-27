@@ -39,15 +39,15 @@
         </collision>
         <visual name='visual'>
           <geometry>
-            <box>
-              <size>0.060 0.060 0.060</size>
-            </box>
+            <mesh>
+              <uri>model://fish/meshes/model.stl</uri>
+            </mesh>
           </geometry>
           <material>
-            <script>
-              <uri>file://media/materials/scripts/gazebo.material</uri>
-              <name>Gazebo/Pink</name>
-            </script>
+            <ambient>1 1 1 1</ambient>
+            <diffuse>1 0.57 0.64 1</diffuse>
+            <specular>0.1 0.1 0.1 1</specular>
+            <emissive>0 0 0 1</emissive>
           </material>
         </visual>
         <velocity_decay>
