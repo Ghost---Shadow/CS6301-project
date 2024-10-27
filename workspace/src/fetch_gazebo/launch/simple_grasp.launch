@@ -14,7 +14,8 @@
     <arg name="paused" value="false"/>
     <arg name="use_sim_time" value="true"/>
     <arg name="headless" value="$(arg headless)"/>
-    <arg name="world_name" value="$(find fetch_gazebo)/worlds/simple_pick_place.sdf"/>
+    <!-- <arg name="world_name" value="$(find fetch_gazebo)/worlds/simple_pick_place.sdf"/> -->
+    <arg name="world_name" value="$(find fetch_gazebo)/worlds/table_with_pot.sdf"/>
   </include>
 
   <!-- Oh, you wanted a robot? -->
