@@ -272,8 +272,12 @@ def hover_then_snatch(pose_operator, target_name):
 
     pose_operator.set_pose(PLANNING_GROUP_GRIPPER, POSE_HAND_CLOSED)
 
-    pose_operator.set_pose(PLANNING_GROUP_ARM, POSE_ABOVE_CHOPPING_BOARD)
 
+def drop_in_pot(pose_operator, pot_name):
+    arm_group = pose_operator.group_lut[PLANNING_GROUP_ARM]
+
+    pose_operator.set_pose(PLANNING_GROUP_ARM, POSE_ABOVE_CHOPPING_BOARD)
+    get_ready_to_pick(arm_group, pot_name, hover=True)
     pose_operator.set_pose(PLANNING_GROUP_GRIPPER, POSE_HAND_OPEN)
 
 
@@ -282,13 +286,21 @@ if __name__ == "__main__":
     rospy.init_node("touch_that_cube")
     print("Finished Init")
 
-    TARGET_NAME = "demo_cube"
+    target_names = [
+        "carrot",
+        "salt",
+        "fish",
+    ]
     SELF_NAME = "fetch"
+    POT_NAME = "pot"
 
     pose_operator = PoseOperator()
-    loud_print("Arm above board")
-    pose_operator.set_pose(PLANNING_GROUP_GRIPPER, POSE_HAND_OPEN)
-    pose_operator.set_pose(PLANNING_GROUP_ARM, POSE_ABOVE_CHOPPING_BOARD)
-    reset_model_pose("fetch")
 
-    hover_then_snatch(pose_operator, TARGET_NAME)
+    for target_name in target_names:
+        loud_print("Arm above board")
+        pose_operator.set_pose(PLANNING_GROUP_GRIPPER, POSE_HAND_OPEN)
+        pose_operator.set_pose(PLANNING_GROUP_ARM, POSE_ABOVE_CHOPPING_BOARD)
+        reset_model_pose("fetch")
+
+        hover_then_snatch(pose_operator, target_name)
+        drop_in_pot(pose_operator, POT_NAME)
