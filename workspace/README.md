@@ -26,7 +26,8 @@ roslaunch fetch_moveit_config move_group.launch
 # roslaunch fetch_with_poses move_group.launch
 # rosrun fetch_gazebo pick_and_place.py
 # rosrun fetch_gazebo touch_that_cube_test.py
-rosrun fetch_gazebo planning.py
+# https://github.com/ros-planning/navigation/issues/1125#issuecomment-1238647110
+rosrun fetch_gazebo planning.py 2> >(grep -v TF_REPEATED_DATA buffer_core)
 # ACTION_CARROT_TO_POT
 # rosrun fetch_gazebo prepare_simulated_robot.py
 # rosrun fetch_gazebo prepare_simulated_robot_pick_place.py
