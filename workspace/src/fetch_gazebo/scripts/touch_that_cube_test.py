@@ -80,6 +80,9 @@ PLANNING_GROUP_GRIPPER = "gripper"
 POSE_ABOVE_CHOPPING_BOARD = "POSE_ABOVE_CHOPPING_BOARD"
 POSE_ZERO = "POSE_ZERO"
 
+POSE_HAND_OPEN = "POSE_HAND_OPEN"
+POSE_HAND_CLOSED = "POSE_HAND_CLOSED"
+
 
 class PoseOperator:
     def __init__(self):
@@ -225,7 +228,7 @@ def target_pose_to_ik_target(target_pose, end_effector_pose, hover):
     return trans, qt
 
 
-def hover_then_snatch_inner(arm_group, target_name, hover):
+def get_ready_to_pick(arm_group, target_name, hover):
     efpose = arm_group.get_current_pose().pose
     # position = efpose.position
     # orientation = efpose.orientation
@@ -261,9 +264,17 @@ def hover_then_snatch_inner(arm_group, target_name, hover):
     arm_group.go(wait=True)
 
 
-def hover_then_snatch(arm_group, target_name):
-    hover_then_snatch_inner(arm_group, target_name, hover=True)
-    hover_then_snatch_inner(arm_group, target_name, hover=False)
+def hover_then_snatch(pose_operator, target_name):
+    arm_group = pose_operator.group_lut[PLANNING_GROUP_ARM]
+
+    get_ready_to_pick(arm_group, target_name, hover=True)
+    get_ready_to_pick(arm_group, target_name, hover=False)
+
+    pose_operator.set_pose(PLANNING_GROUP_GRIPPER, POSE_HAND_CLOSED)
+
+    pose_operator.set_pose(PLANNING_GROUP_ARM, POSE_ABOVE_CHOPPING_BOARD)
+
+    pose_operator.set_pose(PLANNING_GROUP_GRIPPER, POSE_HAND_OPEN)
 
 
 if __name__ == "__main__":
@@ -276,13 +287,8 @@ if __name__ == "__main__":
 
     pose_operator = PoseOperator()
     loud_print("Arm above board")
+    pose_operator.set_pose(PLANNING_GROUP_GRIPPER, POSE_HAND_OPEN)
     pose_operator.set_pose(PLANNING_GROUP_ARM, POSE_ABOVE_CHOPPING_BOARD)
     reset_model_pose("fetch")
 
-    arm_group = pose_operator.group_lut[PLANNING_GROUP_ARM]
-
-    new_joints = arm_group.get_current_joint_values()
-    print("current joint state of the robot")
-    print(new_joints)
-
-    hover_then_snatch(arm_group, TARGET_NAME)
+    hover_then_snatch(pose_operator, TARGET_NAME)
