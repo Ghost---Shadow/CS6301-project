@@ -25,9 +25,9 @@ roslaunch fetch_moveit_config move_group.launch
 # roslaunch fetch_with_poses demo_gazebo.launch
 # roslaunch fetch_with_poses move_group.launch
 # rosrun fetch_gazebo pick_and_place.py
-rosrun fetch_gazebo touch_that_cube_test.py
-# rosrun fetch_gazebo planning.py
-# ACTION_CARROT_TO_CHOPPING_BOARD
+# rosrun fetch_gazebo touch_that_cube_test.py
+rosrun fetch_gazebo planning.py
+# ACTION_CARROT_TO_POT
 # rosrun fetch_gazebo prepare_simulated_robot.py
 # rosrun fetch_gazebo prepare_simulated_robot_pick_place.py
 # rosrun fetch_gazebo pickup.py

@@ -9,67 +9,87 @@ import actionlib
 from pydantic import BaseModel, validator, ValidationError
 from openai import OpenAI
 
+import sys
+import time
+import rospy
+import roslib
+import tf
+import numpy as np
+import moveit_commander
+
+from transforms3d.quaternions import mat2quat, quat2mat
+from geometry_msgs.msg import PoseStamped
+from trac_ik_python.trac_ik import IK
+import moveit_msgs
+import actionlib
+from gazebo_msgs.srv import SetModelState
+from gazebo_msgs.msg import ModelState
+from geometry_msgs.msg import Pose, Quaternion, Twist
+
+roslib.load_manifest("gazebo_msgs")
+from gazebo_msgs.srv import GetModelState
+
 PLANNING_GROUP_ARM = "arm"
 PLANNING_GROUP_GRIPPER = "gripper"
 
 # Actions are animations with multiple poses
 # OpenAI will decide the actions
-ACTION_CARROT_TO_CHOPPING_BOARD = "ACTION_CARROT_TO_CHOPPING_BOARD"
-ACTION_FISH_TO_CHOPPING_BOARD = "ACTION_FISH_TO_CHOPPING_BOARD"
-ACTION_CHOP_AND_PUT_DOWN_KNIFE = "ACTION_CHOP_AND_PUT_DOWN_KNIFE"
-ACTION_DELIVER_CHOPPED_ITEM = "ACTION_DELIVER_CHOPPED_ITEM"
+ACTION_PREFLIGHT = "ACTION_PREFLIGHT"
+ACTION_CARROT_TO_POT = "ACTION_CARROT_TO_POT"
+ACTION_FISH_TO_POT = "ACTION_FISH_TO_POT"
+ACTION_SALT_TO_POT = "ACTION_SALT_TO_POT"
+ALLOWED_ACTIONS = [
+    ACTION_CARROT_TO_POT,
+    ACTION_FISH_TO_POT,
+    ACTION_SALT_TO_POT,
+]
 
 # Every action is multiple poses chained
-POSE_ZERO = "POSE_ZERO"
-POSE_READY_TO_GRAB_CARROT = "POSE_READY_TO_GRAB_CARROT"
-POSE_READY_TO_GRAB_FISH = "POSE_READY_TO_GRAB_FISH"
-POSE_KNIFE_LOCATION = "POSE_KNIFE_LOCATION"
 POSE_ABOVE_CHOPPING_BOARD = "POSE_ABOVE_CHOPPING_BOARD"
-POSE_READY_TO_GRAB_CHOPPED_ITEM = "POSE_READY_TO_GRAB_CHOPPED_ITEM"
 POSE_HAND_OPEN = "POSE_HAND_OPEN"
 POSE_HAND_CLOSED = "POSE_HAND_CLOSED"
-POSE_CHOP_UP = "POSE_CHOP_UP"
-POSE_CHOP_DOWN = "POSE_CHOP_DOWN"
-POSE_DINNER_PLATE_LOCATION = "POSE_DINNER_PLATE_LOCATION"
+POSE_TYPES = [POSE_ABOVE_CHOPPING_BOARD, POSE_HAND_OPEN, POSE_HAND_CLOSED]
 
+IK_OPERATION_HOVER = "IK_OPERATION_HOVER"
+IK_OPERATION_READY_TO_GRAB = "IK_OPERATION_READY_TO_GRAB"
+IK_TYPES = [IK_OPERATION_HOVER, IK_OPERATION_READY_TO_GRAB]
+
+OBJECT_CARROT = "carrot"
+OBJECT_FISH = "fish"
+OBJECT_SALT = "salt"
+OBJECT_POT = "pot"
+OBJECT_ROBOT = "fetch"
+
+END_EFFECTOR_NAME = "wrist_roll_joint"
 
 ANIMATIONS_LUT = {
-    ACTION_CARROT_TO_CHOPPING_BOARD: [
-        {"type": POSE_ZERO, "delay": 1.0, "group": PLANNING_GROUP_ARM},
-        {"type": POSE_HAND_OPEN, "delay": 1.0, "group": PLANNING_GROUP_GRIPPER},
-        {"type": POSE_READY_TO_GRAB_CARROT, "delay": 1.0, "group": PLANNING_GROUP_ARM},
-        {"type": POSE_HAND_CLOSED, "delay": 1.0, "group": PLANNING_GROUP_GRIPPER},
-        {"type": POSE_ABOVE_CHOPPING_BOARD, "delay": 1.0, "group": PLANNING_GROUP_ARM},
-        {"type": POSE_HAND_OPEN, "delay": 1.0, "group": PLANNING_GROUP_GRIPPER},
+    ACTION_PREFLIGHT: [
+        {"group": PLANNING_GROUP_GRIPPER, "type": POSE_HAND_OPEN},
+        {"group": PLANNING_GROUP_ARM, "type": POSE_ABOVE_CHOPPING_BOARD},
     ],
-    ACTION_FISH_TO_CHOPPING_BOARD: [
-        {"type": POSE_ZERO, "delay": 1.0},
-        {"type": POSE_HAND_OPEN, "delay": 1.0},
-        {"type": POSE_READY_TO_GRAB_FISH, "delay": 1.0},
-        {"type": POSE_HAND_CLOSED, "delay": 1.0},
-        {"type": POSE_ABOVE_CHOPPING_BOARD, "delay": 1.0},
-        {"type": POSE_HAND_OPEN, "delay": 1.0},
+    ACTION_CARROT_TO_POT: [
+        {"type": IK_OPERATION_HOVER, "target": OBJECT_CARROT},
+        {"type": IK_OPERATION_READY_TO_GRAB, "target": OBJECT_CARROT},
+        {"group": PLANNING_GROUP_GRIPPER, "type": POSE_HAND_CLOSED},
+        {"group": PLANNING_GROUP_ARM, "type": POSE_ABOVE_CHOPPING_BOARD},
+        {"type": IK_OPERATION_HOVER, "target": OBJECT_POT},
+        {"group": PLANNING_GROUP_GRIPPER, "type": POSE_HAND_OPEN},
     ],
-    ACTION_CHOP_AND_PUT_DOWN_KNIFE: [
-        {"type": POSE_KNIFE_LOCATION, "delay": 1.0},
-        {"type": POSE_HAND_CLOSED, "delay": 1.0},
-        {"type": POSE_ABOVE_CHOPPING_BOARD, "delay": 1.0},
-        {"type": POSE_CHOP_UP, "delay": 1.0},
-        {"type": POSE_CHOP_DOWN, "delay": 1.0},
-        {"type": POSE_CHOP_UP, "delay": 1.0},
-        {"type": POSE_CHOP_DOWN, "delay": 1.0},
-        {"type": POSE_KNIFE_LOCATION, "delay": 1.0},
-        {"type": POSE_HAND_OPEN, "delay": 1.0},
+    ACTION_FISH_TO_POT: [
+        {"type": IK_OPERATION_HOVER, "target": OBJECT_FISH},
+        {"type": IK_OPERATION_READY_TO_GRAB, "target": OBJECT_FISH},
+        {"group": PLANNING_GROUP_GRIPPER, "type": POSE_HAND_CLOSED},
+        {"group": PLANNING_GROUP_ARM, "type": POSE_ABOVE_CHOPPING_BOARD},
+        {"type": IK_OPERATION_HOVER, "target": OBJECT_POT},
+        {"group": PLANNING_GROUP_GRIPPER, "type": POSE_HAND_OPEN},
     ],
-    ACTION_DELIVER_CHOPPED_ITEM: [
-        {"type": POSE_HAND_OPEN, "delay": 1.0},
-        {"type": POSE_ABOVE_CHOPPING_BOARD, "delay": 1.0},
-        {"type": POSE_READY_TO_GRAB_CHOPPED_ITEM, "delay": 1.0},
-        {"type": POSE_HAND_CLOSED, "delay": 1.0},
-        {"type": POSE_ABOVE_CHOPPING_BOARD, "delay": 1.0},
-        {"type": POSE_DINNER_PLATE_LOCATION, "delay": 1.0},
-        {"type": POSE_HAND_OPEN, "delay": 1.0},
-        {"type": POSE_ZERO, "delay": 1.0},
+    ACTION_SALT_TO_POT: [
+        {"type": IK_OPERATION_HOVER, "target": OBJECT_SALT},
+        {"type": IK_OPERATION_READY_TO_GRAB, "target": OBJECT_SALT},
+        {"group": PLANNING_GROUP_GRIPPER, "type": POSE_HAND_CLOSED},
+        {"group": PLANNING_GROUP_ARM, "type": POSE_ABOVE_CHOPPING_BOARD},
+        {"type": IK_OPERATION_HOVER, "target": OBJECT_POT},
+        {"group": PLANNING_GROUP_GRIPPER, "type": POSE_HAND_OPEN},
     ],
 }
 
@@ -78,7 +98,6 @@ class PoseOperator:
     def __init__(self):
         # Initialize ROS node and moveit_commander
         moveit_commander.roscpp_initialize(sys.argv)
-        rospy.init_node("node_set_redefined_pose", anonymous=True)
 
         # Core components of the robot interface
         self.robot = moveit_commander.RobotCommander()
@@ -127,34 +146,183 @@ class PoseOperator:
 
         return success
 
-    def execute_action(self, action_name):
+
+def loud_print(s):
+    print("-" * 80)
+    print(s)
+    print("-" * 80)
+
+
+class IKOperator:
+    def __init__(self, arm_group):
+        self.ik_solver = IK("base_link", "wrist_roll_link")
+        self.ik_solver = self.stop_rolling_ffs()
+        self.arm_group = arm_group
+
+    def stop_rolling_ffs(self):
+        ik_solver = self.ik_solver
+        lower_bound, upper_bound = ik_solver.get_joint_limits()
+        lower_bound = list(lower_bound)
+        upper_bound = list(upper_bound)
+        lower_bound[0] = 0  # torso_lift_joint
+        upper_bound[0] = 0  # torso_lift_joint
+        for i, joint_name in enumerate(ik_solver.joint_names):
+            if joint_name in ["upperarm_roll_joint", "forearm_roll_joint"]:
+                lower_bound[i] = -1e-1
+                upper_bound[i] = 1e-1
+        print("rolling limits")
+        print(ik_solver.joint_names)
+        print(lower_bound)
+        print(upper_bound)
+        ik_solver.set_joint_limits(lower_bound, upper_bound)
+        return ik_solver
+
+    @staticmethod
+    def target_pose_to_ik_target(target_pose, end_effector_pose, hover):
+        cube_global_position = [
+            target_pose.position.x,
+            target_pose.position.y,
+            target_pose.position.z,
+        ]
+        if hover:
+            offset = 0.25
+        else:
+            offset = 0.175
+
+        trans = [
+            cube_global_position[0],
+            cube_global_position[1],
+            cube_global_position[2] + offset,
+        ]
+
+        qt = [
+            end_effector_pose.orientation.x,
+            end_effector_pose.orientation.y,
+            end_effector_pose.orientation.z,
+            end_effector_pose.orientation.w,
+        ]
+
+        return trans, qt
+
+    def get_ready_to_pick_with_retries(self, target_name, hover, retries=5):
+        if retries <= 0:
+            raise Exception(f"Could not plan {target_name},hover:{hover}")
+        try:
+            self.get_ready_to_pick(target_name, hover)
+        except Exception:
+            self.get_ready_to_pick_with_retries(target_name, hover, retries - 1)
+
+    def get_ready_to_pick(self, target_name, hover):
+        arm_group = self.arm_group
+        ik_solver = self.ik_solver
+
+        efpose = arm_group.get_current_pose().pose
+
+        cube_result = Controller.gms_client(target_name, relative_entity_name="")
+        print(cube_result.pose)
+
+        joints = arm_group.get_current_joint_values()
+        print("current joint state of the robot")
+        print(arm_group.get_active_joints())
+        print(joints)
+
+        trans, qt = IKOperator.target_pose_to_ik_target(cube_result.pose, efpose, hover)
+
+        seed_state = [0.0, *joints]
+        sol = ik_solver.get_ik(
+            seed_state, trans[0], trans[1], trans[2], qt[0], qt[1], qt[2], qt[3]
+        )
+        print("Solution from IK:")
+        print(ik_solver.joint_names)
+        print(sol)
+        sol = sol[1:]
+
+        loud_print("Moving")
+        arm_group.set_joint_value_target(sol)
+        plan = arm_group.plan()
+        arm_group.go(wait=True)
+
+
+class Controller:
+    def __init__(self):
+        rospy.init_node("soup_controller", anonymous=True)
+        self.pose_operator = PoseOperator()
+        arm_group = self.pose_operator.group_lut[PLANNING_GROUP_ARM]
+        self.ik_operator = IKOperator(arm_group)
+
+    @staticmethod
+    def gms_client(model_name, relative_entity_name):
+        rospy.wait_for_service("/gazebo/get_model_state")
+        try:
+            gms = rospy.ServiceProxy("/gazebo/get_model_state", GetModelState)
+            return gms(model_name, relative_entity_name)
+        except rospy.ServiceException as e:
+            print("Service call failed: %s" % e)
+
+    @staticmethod
+    def reset_model_pose(model_name):
         """
-        Execute a series of poses based on a predefined action.
+        Resets the pose of a specified model in Gazebo to the origin (0, 0, 0)
+        with no rotation.
 
         Args:
-        action_name (str): The name of the action to execute as defined in ANIMATIONS_LUT.
+        model_name (str): The name of the model in Gazebo to reset.
+
+        Returns:
+        bool, str: Success flag and status message from the service call.
         """
-        if action_name in ANIMATIONS_LUT:
-            for step in ANIMATIONS_LUT[action_name]:
-                pose_name = step["type"]
-                delay = step["delay"]
-                group_name = step["group"]
-                rospy.loginfo(
-                    f"Executing pose: {group_name}:{pose_name} with a delay of {delay} seconds"
-                )
-                self.set_pose(group_name, pose_name)
-                rospy.sleep(2)
+        # # Initialize the node if it hasn't been initialized yet
+        # if not rospy.core.is_initialized():
+        #     rospy.init_node("model_pose_resetter", anonymous=True)
+
+        # Wait for the Gazebo service to become available
+        rospy.wait_for_service("/gazebo/set_model_state")
+
+        try:
+            # Create a service proxy for setting the model state
+            set_state = rospy.ServiceProxy("/gazebo/set_model_state", SetModelState)
+
+            # Define the new model state
+            model_state = ModelState()
+            model_state.model_name = model_name
+            model_state.pose = (
+                Pose()
+            )  # This defaults to position (0,0,0) and no rotation
+            model_state.twist = Twist()  # No linear or angular velocity
+            model_state.reference_frame = "world"  # Pose relative to the world frame
+
+            # Call the service
+            response = set_state(model_state)
+
+            # Return the response success status and status message
+            return response.success, response.status_message
+        except rospy.ServiceException as e:
+            print(f"Service call failed: {e}")
+            return False, str(e)
+
+    def execute_operation(self, operation):
+        if operation["type"] in POSE_TYPES:
+            group_name = operation["group"]
+            pose_name = operation["type"]
+            self.pose_operator.set_pose(group_name, pose_name)
+        elif operation["type"] in IK_TYPES:
+            target_name = operation["target"]
+            hover = operation["type"] == IK_OPERATION_HOVER
+            self.ik_operator.get_ready_to_pick_with_retries(target_name, hover)
         else:
-            rospy.loginfo(f"Action {action_name} is not defined.")
+            raise Exception(operation)
+
+    def execute_action(self, action_name):
+        for operation in ANIMATIONS_LUT[ACTION_PREFLIGHT]:
+            self.execute_operation(operation)
+
+        self.reset_model_pose(OBJECT_ROBOT)
+
+        for operation in ANIMATIONS_LUT[action_name]:
+            self.execute_operation(operation)
 
 
 # Define the allowed actions as a class attribute or global constant
-ALLOWED_ACTIONS = [
-    ACTION_CARROT_TO_CHOPPING_BOARD,
-    ACTION_FISH_TO_CHOPPING_BOARD,
-    ACTION_CHOP_AND_PUT_DOWN_KNIFE,
-    ACTION_DELIVER_CHOPPED_ITEM,
-]
 
 
 class ActionPlan(BaseModel):
@@ -201,7 +369,7 @@ class Planner:
 
 
 def debug_loop():
-    pose_operator = PoseOperator()
+    controller = Controller()
 
     print("Pose Operator is running. Enter action names to execute or 'exit' to quit:")
     try:
@@ -211,7 +379,7 @@ def debug_loop():
                 print("Exiting...")
                 break
             elif action_name in ANIMATIONS_LUT:
-                pose_operator.execute_action(action_name)
+                controller.execute_action(action_name)
             else:
                 print(f"Action '{action_name}' is not defined. Try again.")
             rospy.sleep(2)
@@ -220,8 +388,8 @@ def debug_loop():
 
 
 def planning_loop():
-    pose_operator = PoseOperator()
-    planner = Planner()  # Assuming Planner class is already defined and imported
+    controller = Controller()
+    planner = Planner()
 
     print(
         "Pose Operator is running. Enter meal descriptions to plan or 'exit' to quit:"
@@ -238,7 +406,7 @@ def planning_loop():
                 print(f"Executing actions for: {meal_description}")
                 for action in actions:
                     print(f"Executing {action}")
-                    pose_operator.execute_action(action)
+                    controller.execute_action(action)
             else:
                 print(
                     "No valid actions found for the given description. Please try again."
@@ -249,27 +417,30 @@ def planning_loop():
 
 
 def test_vegan_meal_valid_response(planner):
-    meal_description = "I want to make a vegan salad"
+    meal_description = "I want to make a vegan soup"
 
     actions = planner.plan_meal(meal_description)
 
-    assert actions == [
-        "ACTION_CARROT_TO_CHOPPING_BOARD",
-        "ACTION_CHOP_AND_PUT_DOWN_KNIFE",
-        "ACTION_DELIVER_CHOPPED_ITEM",
-    ], actions
+    assert set(actions) == set(
+        [
+            "ACTION_CARROT_TO_POT",
+            "ACTION_SALT_TO_POT",
+        ]
+    ), actions
 
 
 def test_sushi_meal_valid_response(planner):
-    meal_description = "I want sushi"
+    meal_description = "I want fish soup"
 
     actions = planner.plan_meal(meal_description)
 
-    assert actions == [
-        "ACTION_FISH_TO_CHOPPING_BOARD",
-        "ACTION_CHOP_AND_PUT_DOWN_KNIFE",
-        "ACTION_DELIVER_CHOPPED_ITEM",
-    ], actions
+    assert set(actions) == set(
+        [
+            "ACTION_CARROT_TO_POT",
+            "ACTION_SALT_TO_POT",
+            "ACTION_FISH_TO_POT",
+        ]
+    ), actions
 
 
 def tests():
@@ -279,6 +450,6 @@ def tests():
 
 
 if __name__ == "__main__":
-    debug_loop()
-    # planning_loop()
+    # debug_loop()
+    planning_loop()
     # tests()
