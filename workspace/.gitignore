@@ -23,5 +23,3 @@ __pycache__/
 *.png
 *.dae
 *.stl
-
-*CMakeLists.txt
