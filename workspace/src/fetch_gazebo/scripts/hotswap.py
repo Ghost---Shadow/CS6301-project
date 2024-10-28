@@ -38,10 +38,10 @@ def delete_model(model_name):
 if __name__ == "__main__":
     rospy.init_node("model_manager", anonymous=True)
 
-    current_model = "tomato"
-    new_model_name = "carrot2"
+    current_model = "pot"
+    new_model_name = "pot"
     new_model_file = open(
-        "/home/ros/workspace/src/fetch_gazebo/models/carrot/model.sdf", "r"
+        "/home/ros/workspace/src/fetch_gazebo/models/pot/model.sdf", "r"
     ).read()
 
     # Get current pose of the model before deleting

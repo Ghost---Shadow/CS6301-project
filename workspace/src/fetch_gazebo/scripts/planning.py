@@ -16,7 +16,7 @@ import roslib
 import tf
 import numpy as np
 import moveit_commander
-
+from gazebo_msgs.srv import DeleteModel
 from transforms3d.quaternions import mat2quat, quat2mat
 from geometry_msgs.msg import PoseStamped
 from trac_ik_python.trac_ik import IK
@@ -54,6 +54,8 @@ IK_OPERATION_HOVER = "IK_OPERATION_HOVER"
 IK_OPERATION_READY_TO_GRAB = "IK_OPERATION_READY_TO_GRAB"
 IK_TYPES = [IK_OPERATION_HOVER, IK_OPERATION_READY_TO_GRAB]
 
+DISSOLVE_EVENT = "DISSOLVE_EVENT"
+
 OBJECT_CARROT = "carrot"
 OBJECT_FISH = "fish"
 OBJECT_TOMATO = "tomato"
@@ -74,6 +76,7 @@ ANIMATIONS_LUT = {
         {"group": PLANNING_GROUP_ARM, "type": POSE_ABOVE_CHOPPING_BOARD},
         {"type": IK_OPERATION_HOVER, "target": OBJECT_POT},
         {"group": PLANNING_GROUP_GRIPPER, "type": POSE_HAND_OPEN},
+        {"type": DISSOLVE_EVENT, "target": OBJECT_CARROT},
     ],
     ACTION_FISH_TO_POT: [
         {"type": IK_OPERATION_HOVER, "target": OBJECT_FISH},
@@ -82,6 +85,7 @@ ANIMATIONS_LUT = {
         {"group": PLANNING_GROUP_ARM, "type": POSE_ABOVE_CHOPPING_BOARD},
         {"type": IK_OPERATION_HOVER, "target": OBJECT_POT},
         {"group": PLANNING_GROUP_GRIPPER, "type": POSE_HAND_OPEN},
+        {"type": DISSOLVE_EVENT, "target": OBJECT_FISH},
     ],
     ACTION_TOMATO_TO_POT: [
         {"type": IK_OPERATION_HOVER, "target": OBJECT_TOMATO},
@@ -90,6 +94,7 @@ ANIMATIONS_LUT = {
         {"group": PLANNING_GROUP_ARM, "type": POSE_ABOVE_CHOPPING_BOARD},
         {"type": IK_OPERATION_HOVER, "target": OBJECT_POT},
         {"group": PLANNING_GROUP_GRIPPER, "type": POSE_HAND_OPEN},
+        {"type": DISSOLVE_EVENT, "target": OBJECT_TOMATO},
     ],
 }
 
@@ -250,6 +255,9 @@ class Controller:
         arm_group = self.pose_operator.group_lut[PLANNING_GROUP_ARM]
         self.ik_operator = IKOperator(arm_group)
 
+        rospy.wait_for_service("/gazebo/delete_model")
+        self.del_model = rospy.ServiceProxy("/gazebo/delete_model", DeleteModel)
+
     @staticmethod
     def gms_client(model_name, relative_entity_name):
         rospy.wait_for_service("/gazebo/get_model_state")
@@ -285,11 +293,9 @@ class Controller:
             # Define the new model state
             model_state = ModelState()
             model_state.model_name = model_name
-            model_state.pose = (
-                Pose()
-            )  # This defaults to position (0,0,0) and no rotation
-            model_state.twist = Twist()  # No linear or angular velocity
-            model_state.reference_frame = "world"  # Pose relative to the world frame
+            model_state.pose = Pose()
+            model_state.twist = Twist()
+            model_state.reference_frame = "world"
 
             # Call the service
             response = set_state(model_state)
@@ -309,6 +315,8 @@ class Controller:
             target_name = operation["target"]
             hover = operation["type"] == IK_OPERATION_HOVER
             self.ik_operator.get_ready_to_pick_with_retries(target_name, hover)
+        elif operation["type"] == DISSOLVE_EVENT:
+            self.del_model(operation["target"])
         else:
             raise Exception(operation)
 

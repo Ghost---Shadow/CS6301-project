@@ -10,7 +10,7 @@
           </mesh>
         </geometry>
       </collision>
-      <visual name='visual'>
+      <visual name='pot'>
         <geometry>
           <mesh>
             <uri>model://pot/meshes/model.stl</uri>
@@ -19,6 +19,19 @@
         <material>
           <ambient>1 1 1 1</ambient>
           <diffuse>1 1 1 1</diffuse>
+          <specular>0.1 0.1 0.1 1</specular>
+          <emissive>0 0 0 1</emissive>
+        </material>
+      </visual>
+      <visual name='soup'>
+        <geometry>
+          <mesh>
+            <uri>model://pot/meshes/soup.stl</uri>
+          </mesh>
+        </geometry>
+        <material>
+          <ambient>1 1 1 1</ambient>
+          <diffuse>0.93 0.57 0.13 1</diffuse>
           <specular>0.1 0.1 0.1 1</specular>
           <emissive>0 0 0 1</emissive>
         </material>
