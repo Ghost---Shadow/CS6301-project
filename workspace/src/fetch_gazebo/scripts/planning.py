@@ -38,10 +38,12 @@ ACTION_PREFLIGHT = "ACTION_PREFLIGHT"
 ACTION_CARROT_TO_POT = "ACTION_CARROT_TO_POT"
 ACTION_FISH_TO_POT = "ACTION_FISH_TO_POT"
 ACTION_TOMATO_TO_POT = "ACTION_TOMATO_TO_POT"
+ACTION_BUTTER_TO_POT = "ACTION_BUTTER_TO_POT"
 ALLOWED_ACTIONS = [
     ACTION_CARROT_TO_POT,
     ACTION_FISH_TO_POT,
     ACTION_TOMATO_TO_POT,
+    # ACTION_BUTTER_TO_POT,
 ]
 
 # Every action is multiple poses chained
@@ -59,6 +61,7 @@ DISSOLVE_EVENT = "DISSOLVE_EVENT"
 OBJECT_CARROT = "carrot"
 OBJECT_FISH = "fish"
 OBJECT_TOMATO = "tomato"
+OBJECT_BUTTER = "butter"
 OBJECT_POT = "pot"
 OBJECT_ROBOT = "fetch"
 
@@ -95,6 +98,15 @@ ANIMATIONS_LUT = {
         {"type": IK_OPERATION_HOVER, "target": OBJECT_POT},
         {"group": PLANNING_GROUP_GRIPPER, "type": POSE_HAND_OPEN},
         {"type": DISSOLVE_EVENT, "target": OBJECT_TOMATO},
+    ],
+    ACTION_BUTTER_TO_POT: [
+        {"type": IK_OPERATION_HOVER, "target": OBJECT_BUTTER},
+        {"type": IK_OPERATION_READY_TO_GRAB, "target": OBJECT_BUTTER},
+        {"group": PLANNING_GROUP_GRIPPER, "type": POSE_HAND_CLOSED},
+        {"group": PLANNING_GROUP_ARM, "type": POSE_ABOVE_CHOPPING_BOARD},
+        {"type": IK_OPERATION_HOVER, "target": OBJECT_POT},
+        {"group": PLANNING_GROUP_GRIPPER, "type": POSE_HAND_OPEN},
+        {"type": DISSOLVE_EVENT, "target": OBJECT_BUTTER},
     ],
 }
 
@@ -175,10 +187,10 @@ class IKOperator:
             if joint_name in ["upperarm_roll_joint", "forearm_roll_joint"]:
                 lower_bound[i] = -1e-1
                 upper_bound[i] = 1e-1
-        print("rolling limits")
-        print(ik_solver.joint_names)
-        print(lower_bound)
-        print(upper_bound)
+        # print("rolling limits")
+        # print(ik_solver.joint_names)
+        # print(lower_bound)
+        # print(upper_bound)
         ik_solver.set_joint_limits(lower_bound, upper_bound)
         return ik_solver
 
@@ -215,6 +227,9 @@ class IKOperator:
         try:
             self.get_ready_to_pick(target_name, hover)
         except Exception:
+            print(
+                f"Retrying attempt {target_name}:{hover}. Attempts left: {retries - 1}"
+            )
             self.get_ready_to_pick_with_retries(target_name, hover, retries - 1)
 
     def get_ready_to_pick(self, target_name, hover):
@@ -224,12 +239,12 @@ class IKOperator:
         efpose = arm_group.get_current_pose().pose
 
         cube_result = Controller.gms_client(target_name, relative_entity_name="")
-        print(cube_result.pose)
+        print("Target pose", cube_result.pose)
 
         joints = arm_group.get_current_joint_values()
-        print("current joint state of the robot")
-        print(arm_group.get_active_joints())
-        print(joints)
+        # print("current joint state of the robot")
+        # print(arm_group.get_active_joints())
+        # print(joints)
 
         trans, qt = IKOperator.target_pose_to_ik_target(cube_result.pose, efpose, hover)
 
@@ -237,12 +252,12 @@ class IKOperator:
         sol = ik_solver.get_ik(
             seed_state, trans[0], trans[1], trans[2], qt[0], qt[1], qt[2], qt[3]
         )
-        print("Solution from IK:")
-        print(ik_solver.joint_names)
-        print(sol)
+        # print("Solution from IK:")
+        # print(ik_solver.joint_names)
+        # print(sol)
         sol = sol[1:]
 
-        loud_print("Moving")
+        print("Moving")
         arm_group.set_joint_value_target(sol)
         plan = arm_group.plan()
         arm_group.go(wait=True)
@@ -399,9 +414,7 @@ def planning_loop():
     controller = Controller()
     planner = Planner()
 
-    print(
-        "Pose Operator is running. Enter meal descriptions to plan or 'exit' to quit:"
-    )
+    print("Enter meal descriptions to plan or 'exit' to quit:")
     try:
         while not rospy.is_shutdown():
             meal_description = input("Enter a meal description: ")
@@ -411,7 +424,7 @@ def planning_loop():
 
             actions = planner.plan_meal(meal_description)
             if actions:
-                print(f"Executing actions for: {meal_description}")
+                loud_print(f"Executing actions for: {meal_description}")
                 for action in actions:
                     print(f"Executing {action}")
                     controller.execute_action(action)
