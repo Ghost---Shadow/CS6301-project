@@ -38,10 +38,19 @@ ACTION_PREFLIGHT = "ACTION_PREFLIGHT"
 ACTION_CARROT_TO_POT = "ACTION_CARROT_TO_POT"
 ACTION_FISH_TO_POT = "ACTION_FISH_TO_POT"
 ACTION_TOMATO_TO_POT = "ACTION_TOMATO_TO_POT"
+
+# New action constants
+ACTION_ONION_TO_POT = "ACTION_ONION_TO_POT"
+ACTION_POTATO_TO_POT = "ACTION_POTATO_TO_POT"
+ACTION_STIR_IN_POT = "ACTION_STIR_IN_POT"
+
 ALLOWED_ACTIONS = [
     ACTION_CARROT_TO_POT,
     ACTION_FISH_TO_POT,
     ACTION_TOMATO_TO_POT,
+    ACTION_ONION_TO_POT,
+    ACTION_POTATO_TO_POT,
+    ACTION_STIR_IN_POT,
 ]
 
 # Every action is multiple poses chained
@@ -95,6 +104,29 @@ ANIMATIONS_LUT = {
         {"type": IK_OPERATION_HOVER, "target": OBJECT_POT},
         {"group": PLANNING_GROUP_GRIPPER, "type": POSE_HAND_OPEN},
         {"type": DISSOLVE_EVENT, "target": OBJECT_TOMATO},
+    ],
+ACTION_ONION_TO_POT: [
+        {"type": IK_OPERATION_HOVER, "target": "onion"},
+        {"type": IK_OPERATION_READY_TO_GRAB, "target": "onion"},
+        {"group": PLANNING_GROUP_GRIPPER, "type": POSE_HAND_CLOSED},
+        {"group": PLANNING_GROUP_ARM, "type": POSE_ABOVE_CHOPPING_BOARD},
+        {"type": IK_OPERATION_HOVER, "target": OBJECT_POT},
+        {"group": PLANNING_GROUP_GRIPPER, "type": POSE_HAND_OPEN},
+        {"type": DISSOLVE_EVENT, "target": "onion"},
+    ],
+    ACTION_POTATO_TO_POT: [
+        {"type": IK_OPERATION_HOVER, "target": "potato"},
+        {"type": IK_OPERATION_READY_TO_GRAB, "target": "potato"},
+        {"group": PLANNING_GROUP_GRIPPER, "type": POSE_HAND_CLOSED},
+        {"group": PLANNING_GROUP_ARM, "type": POSE_ABOVE_CHOPPING_BOARD},
+        {"type": IK_OPERATION_HOVER, "target": OBJECT_POT},
+        {"group": PLANNING_GROUP_GRIPPER, "type": POSE_HAND_OPEN},
+        {"type": DISSOLVE_EVENT, "target": "potato"},
+    ],
+    ACTION_STIR_IN_POT: [
+        {"group": PLANNING_GROUP_ARM, "type": "POSE_ABOVE_POT"},
+        {"group": PLANNING_GROUP_GRIPPER, "type": POSE_HAND_CLOSED},
+        {"type": "IK_OPERATION_STIR", "target": OBJECT_POT},
     ],
 }
 
